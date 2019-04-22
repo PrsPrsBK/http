@@ -1,6 +1,7 @@
 use "collections"
 use "net"
 use "net/ssl"
+use "debug"
 
 primitive _ConnConnecting
 
@@ -63,6 +64,7 @@ actor _ClientConnection is HTTPSession
     Create a connection for the given host and service. We also create
     an instance of the client application's HTTPHandler.
     """
+    Debug.out("  _CliCon Create")
     _auth = auth
     _host = host
     _service = service
@@ -75,6 +77,7 @@ actor _ClientConnection is HTTPSession
     Schedule a request to be sent by adding it to the `unsent` queue
     for this session.
     """
+    Debug.out("  _CliCon Apply")
     _unsent.push(consume request)
     _send_pending()
 
@@ -82,6 +85,7 @@ actor _ClientConnection is HTTPSession
     """
     Cancel a request.
     """
+    Debug.out("  _CliCon cancell")
     // We look for it first in the unsent queue. If it is there,
     // we just remove it.
     try
@@ -115,6 +119,7 @@ actor _ClientConnection is HTTPSession
     delivered' response and subsequent body data has to go there as well,
     if there is any.
     """
+    Debug.out("  _CliCon deliver")
     try
       let request = _sent.shift()?
       _app_handler(response)
@@ -130,6 +135,7 @@ actor _ClientConnection is HTTPSession
     """
     The connection to the server has been established. Send pending requests.
     """
+    Debug.out("  _CliCon conn")
     _nobackpressure = true
     _conn = conn
     _send_pending()
@@ -138,6 +144,7 @@ actor _ClientConnection is HTTPSession
     """
     The connection couldn't be established. Cancel all pending requests.
     """
+    Debug.out("  _CliCon conn fail")
     _cancel_all()
     _conn = None
 
@@ -145,6 +152,7 @@ actor _ClientConnection is HTTPSession
     """
     The connection couldn't be authenticated. Cancel all pending requests.
     """
+    Debug.out("  _CliCon auth fail")
     _cancel_all()
     _conn = None
 
@@ -152,6 +160,7 @@ actor _ClientConnection is HTTPSession
     """
     The connection to the server has closed prematurely. Cancel everything.
     """
+    Debug.out("  _CliCon _closed") //これがfinの後で呼ばれている
     if conn is _conn then
       _cancel_all()
       _conn = None
@@ -162,6 +171,7 @@ actor _ClientConnection is HTTPSession
     Write a low-level byte stream. The `Payload` objects call this to
     generate their wire representation.
     """
+    Debug.out("  _CliCon write")
     match _conn
     | let c: TCPConnection => c.write(data)
     end
@@ -172,6 +182,7 @@ actor _ClientConnection is HTTPSession
     inbound `Payload`. This should be passed directly to the application's
     `HTTPHandler.chunk` method.
     """
+    Debug.out("  _CliCon chunk")
     _app_handler.chunk(data)
 
   be _finish() =>
@@ -182,6 +193,7 @@ actor _ClientConnection is HTTPSession
     _send_pending is called to detect that _unsent and _sent are emptye
     and that _conn can be disposed.
     """
+    Debug.out("  _CliCon _fin")
     _app_handler.finished()
     _send_pending()
 
@@ -189,12 +201,14 @@ actor _ClientConnection is HTTPSession
     """
     We are done sending a request with a long body.
     """
+    Debug.out("  _CliCon fin")
     None
 
   be dispose() =>
     """
     Cancels all requests and disposes the tcp connection.
     """
+    Debug.out("  _CliCon dispose")
     _cancel_all()
     match _conn
     | let c: TCPConnection => c.dispose()
@@ -206,6 +220,7 @@ actor _ClientConnection is HTTPSession
     The connection to the server can not accept data for a while.
     We set a local flag too so we do not send anything on the queue.
     """
+    Debug.out("  _CliCon th")
     _nobackpressure = false
     _app_handler.throttled()
 
@@ -213,6 +228,7 @@ actor _ClientConnection is HTTPSession
     """
     The connection to the server can now accept more data.
     """
+    Debug.out("  _CliCon unth")
     _nobackpressure = true
     _app_handler.unthrottled()
     _send_pending()
@@ -223,6 +239,7 @@ actor _ClientConnection is HTTPSession
     open it. If we have nothing to send and we aren't waiting on any
     responses, close the connection.
     """
+    Debug.out("  _CliCon send pending")
     if _unsent.size() == 0 then
       if _sent.size() == 0 then
         try
@@ -284,6 +301,7 @@ actor _ClientConnection is HTTPSession
     Creates a new connection. `ResponseBuilder` is the notification class
     that will send back a `_connected` call when the connection has been made.
     """
+    Debug.out("  _CliCon new conn")
     match _conn
     | let _: None =>
       try
@@ -306,25 +324,35 @@ actor _ClientConnection is HTTPSession
     """
     Cancel all pending requests.
     """
+    Debug.out("  _CliCon Cancell ALL")
     try
       while true do
+        Debug.out("  _CliCon Cancell ALL while")
         _unsent.pop()? //TODO send fail response
       end
+    else
+      Debug.out("  _CliCon Cancell ALL else") //これが表示されるのでunsentはない
     end
 
     for node in _sent.nodes() do
+      Debug.out("  _CliCon Cancell ALL for")
       node.remove()
-      try node.pop()? end //TODO send fail response
+      try node.pop()? //end //TODO send fail response
+      else
+        Debug.out("  _CliCon Cancell ALL for else")//これは表示されない。nodeは何？
+      end
     end
 
   be _mute() =>
     """
     The application can not handle any more data for a while.
     """
+    Debug.out("  _CliCon mute")
     try (_conn as TCPConnection).mute() end
 
   be _unmute() =>
     """
     The application can accept more data.
     """
+    Debug.out("  _CliCon unmute")
     try (_conn as TCPConnection).unmute() end

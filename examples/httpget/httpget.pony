@@ -3,8 +3,9 @@ use "cli"
 use "collections"
 use "encode/base64"
 use "files"
-use "http"
+use "../../http"
 use "net/ssl"
+use "debug"
 
 class val Config
   let user: String
@@ -78,6 +79,8 @@ actor _GetWork
           .>set_client_verify(true)
           .>set_authority(FilePath(env.root as AmbientAuth, "cacert.pem")?)?
         end
+      else
+        env.out.print("CONTEXT ERROR")
       end
 
     try
@@ -87,6 +90,7 @@ actor _GetWork
       // done this way because we do not know exactly when an HTTPSession
       // is created - they can be re-used.
       let dumpMaker = recover val NotifyFactory.create(this) end
+      Debug.out("try send")
 
       try
         // Start building a GET request.
@@ -107,10 +111,13 @@ actor _GetWork
           auth.append(keyword)
           auth.append(consume coded)
           req("Authorization") = consume auth
+        else
+          Debug.out("no user")
         end
 
         // Submit the request
         let sentreq = client(consume req, dumpMaker)?
+        Debug.out("Sended")
 
         // Could send body data via `sentreq`, if it was a POST
       else
@@ -124,12 +131,14 @@ actor _GetWork
     """
     Process cancellation from the server end.
     """
+    Debug.out("Chancell")
     _env.out.print("-- response cancelled --")
 
   be have_response(response: Payload val) =>
     """
     Process return the the response message.
     """
+    Debug.out("Have")
     if response.status == 0 then
       _env.out.print("Failed")
       return
@@ -162,12 +171,14 @@ actor _GetWork
     """
     Some additional response data.
     """
+    Debug.out("Body")
     _env.out.write(data)
 
   be finished() =>
     """
     End of the response data.
     """
+    Debug.out("Finish")
     _env.out.print("-- end of body --")
 
 class NotifyFactory is HandlerFactory
@@ -177,9 +188,11 @@ class NotifyFactory is HandlerFactory
   let _main: _GetWork
 
   new iso create(main': _GetWork) =>
+    Debug.out("Factory Create")
     _main = main'
 
   fun apply(session: HTTPSession): HTTPHandler ref^ =>
+    Debug.out("Factory Apply")
     HttpNotify.create(_main, session)
 
 class HttpNotify is HTTPHandler
@@ -191,6 +204,7 @@ class HttpNotify is HTTPHandler
   let _session: HTTPSession
 
   new ref create(main': _GetWork, session: HTTPSession) =>
+    Debug.out("Handler Create")
     _main = main'
     _session = session
 
@@ -199,12 +213,15 @@ class HttpNotify is HTTPHandler
     Start receiving a response.  We get the status and headers.  Body data
     *might* be available.
     """
+    //HTTPSのときはこれが呼ばれない。HTTPならば呼ばれる
+    Debug.out("Handler Apply")
     _main.have_response(response)
 
   fun ref chunk(data: ByteSeq val) =>
     """
     Receive additional arbitrary-length response body data.
     """
+    Debug.out("Handler Chunk")
     _main.have_body(data)
 
   fun ref finished() =>
@@ -212,8 +229,22 @@ class HttpNotify is HTTPHandler
     This marks the end of the received body data.  We are done with the
     session.
     """
+    Debug.out("Handler Finish")
     _main.finished()
     _session.dispose()
 
   fun ref cancelled() =>
+    Debug.out("Handler Cancell")
     _main.cancelled()
+
+  fun ref throttled() =>
+    Debug.out("Handler th")
+    None
+
+  fun ref unthrottled() =>
+    Debug.out("Handler unth")
+    None
+
+  fun ref need_body() =>
+    Debug.out("Handler need body")
+    None

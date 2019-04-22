@@ -1,5 +1,6 @@
 use "buffered"
 use "net"
+use "debug"
 
 class _ClientConnHandler is TCPConnectionNotify
   """
@@ -16,6 +17,7 @@ class _ClientConnHandler is TCPConnectionNotify
     The response builder needs to know which Session to forward
     parsed information to.
     """
+    Debug.out("  _CliConHand Create")
     _session = client
     _parser = HTTPParser.response(_session)
 
@@ -23,18 +25,21 @@ class _ClientConnHandler is TCPConnectionNotify
     """
     Tell the client we have connected.
     """
+    Debug.out("  _CliConHand conn")
     _session._connected(conn)
 
   fun ref connect_failed(conn: TCPConnection ref) =>
     """
     The connection could not be established. Tell the client not to proceed.
     """
+    Debug.out("  _CliConHand conn fail")
     _session._connect_failed(conn)
 
   fun ref auth_failed(conn: TCPConnection ref) =>
     """
     SSL authentication failed. Tell the client not to proceed.
     """
+    Debug.out("  _CliConHand auth fail")
     _session._auth_failed(conn)
 
   fun ref received(conn: TCPConnection ref, data: Array[U8] iso,
@@ -43,6 +48,7 @@ class _ClientConnHandler is TCPConnectionNotify
    """
    Pass a received chunk of data to the `HTTPParser`.
    """
+    Debug.out("  _CliConHand received")
    // TODO: inactivity timer
     _buffer.append(consume data)
 
@@ -57,6 +63,10 @@ class _ClientConnHandler is TCPConnectionNotify
     """
     The connection has closed, possibly prematurely.
     """
+    Debug.out("  _CliConHand closed")
+    let wk = conn.get_so_error()
+    // Debug.out("    " + wk._1.string()) //1
+    // Debug.out("    " + wk._2.string()) //0
     _parser.closed(_buffer)
     _buffer.clear()
     _session._closed(conn)
@@ -66,6 +76,7 @@ class _ClientConnHandler is TCPConnectionNotify
     TCP connection wants us to stop sending. We do not do anything with
     this here;  just pass it on to the `HTTPSession`.
     """
+    Debug.out("  _CliConHand th")
     _session.throttled()
 
   fun ref unthrottle(conn: TCPConnection ref) =>
@@ -73,5 +84,6 @@ class _ClientConnHandler is TCPConnectionNotify
     TCP can accept more data now. We just pass this on to the
     `HTTPSession`
     """
+    Debug.out("  _CliConHand unth")
     _session.unthrottled()
 

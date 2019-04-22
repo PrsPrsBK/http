@@ -1,6 +1,7 @@
 use "collections"
 use "net"
 use "net/ssl"
+use "debug"
 
 class HTTPClient
   """
@@ -20,11 +21,13 @@ class HTTPClient
     """
     Create the context in which all HTTP sessions will originate.
     """
+    Debug.out("client create")
     _auth = auth
 
     _sslctx = try
       sslctx as SSLContext
     else
+      Debug.out("context recover")
       recover
         let newssl = SSLContext
         newssl.set_client_verify(false)
@@ -47,17 +50,25 @@ class HTTPClient
     This is useful in Stream and Chunked transfer modes, so that the
     application can follow up with calls to `Client.send_body`.
     """
-    let session = _get_session(request.url, handlermaker)?
-    let mode = request.transfer_mode
-    request.session = session
-    let valrequest: Payload val = consume request
-    session(valrequest)
-    valrequest
+    Debug.out("client apply")
+    try
+      let session = _get_session(request.url, handlermaker)?
+      let mode = request.transfer_mode
+      request.session = session
+      let valrequest: Payload val = consume request
+      session(valrequest)
+      Debug.out("client apply END")
+      valrequest
+    else
+      Debug.out("client error")
+      error
+    end
 
   fun ref dispose() =>
     """
     Disposes the sessions and cancels all pending requests.
     """
+    Debug.out("client dispose")
     for s in _sessions.values() do
       s.dispose()
     end
@@ -85,9 +96,11 @@ class HTTPClient
     let hs = _HostService(url.scheme, url.host, url.port.string())
 
     try
+      Debug.out("_getsession Lookup")
       // Look for an existing session
       _sessions(hs)?
     else
+      Debug.out("_getsession NEW")
       // or create a new session of the correct type.
       let session =
         match url.scheme
@@ -95,9 +108,11 @@ class HTTPClient
           _ClientConnection(_auth, hs.host, hs.service,
             None, _pipeline, handlermaker)
         | "https" =>
+          Debug.out("_getsession HTTPS")
           _ClientConnection(_auth, hs.host, hs.service,
             _sslctx, _pipeline, handlermaker)
         else
+          Debug.out("_getsession ERROR")
           error
         end
       _sessions(hs) = session
@@ -105,6 +120,7 @@ class HTTPClient
     end
 
   fun ref send_body(data: ByteSeq val, session: HTTPSession) =>
+    Debug.out("send_body")
     session.write(data)
 
 class _SessionGuard

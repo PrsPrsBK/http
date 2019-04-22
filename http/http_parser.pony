@@ -1,6 +1,7 @@
 use "buffered"
 use "net"
 use "encode/base64"
+use "debug"
 
 // The parser internal state indicates what it expects to see next
 // in the input stream.
@@ -73,6 +74,7 @@ class HTTPParser
     """
     Analyze new data based on the parser's current internal state.
     """
+    Debug.out("http P parse")
     match _state
     | _ExpectRequest => _parse_request(buffer)
     | _ExpectResponse => _parse_response(buffer)
@@ -131,6 +133,7 @@ class HTTPParser
     The connection has closed, which may signal that all remaining data is the
     payload body.
     """
+    Debug.out("http P closed")
     if _state is _ExpectBody then
       _expected_length = buffer.size()
 
