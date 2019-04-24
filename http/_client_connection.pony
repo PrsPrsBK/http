@@ -201,7 +201,7 @@ actor _ClientConnection is HTTPSession
     """
     We are done sending a request with a long body.
     """
-    Debug.out("  _CliCon fin")
+    Debug.out("  _CliCon fin <send request done>")
     None
 
   be dispose() =>
@@ -272,21 +272,29 @@ actor _ClientConnection is HTTPSession
         // Send requests until backpressure makes us stop, or we
         // send an unsafe request.
         while _nobackpressure do
+          Debug.out("    TOP of while")
           // Take a request off the unsent queue and notice whether
           // it is safe.
           let request = _unsent.shift()?
+          Debug.out("    after shift()")
           let safereq = request.is_safe()
+          Debug.out("    after is_safe()")
           // Send all of the request that is possible for now.
           request._write(true, conn)
+          Debug.out("    after _write()")
 
           // If there is a folow-on body, tell client to send it now.
           if request.has_body() then
             match request.transfer_mode
-            | OneshotTransfer => finish()
+            | OneshotTransfer =>
+              Debug.out("    has_body() -> go finish()")
+              finish()
             else
+              Debug.out("    has_body() -> go need_body()")
               _app_handler.need_body()
             end
           else
+            Debug.out("    go finish()")
             finish()
           end
 
@@ -297,6 +305,8 @@ actor _ClientConnection is HTTPSession
           if not safereq then
             _safewait = true
             break
+          else
+            Debug.out("    safereq")
           end
         end
       else
@@ -331,6 +341,8 @@ actor _ClientConnection is HTTPSession
           _host, _service)
       end
       _conn = _ConnConnecting
+    else
+      Debug.out("  _CliCon new conn match else")
     end
 
   fun ref _cancel_all() =>
