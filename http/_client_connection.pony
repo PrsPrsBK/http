@@ -245,19 +245,29 @@ actor _ClientConnection is HTTPSession
         try
           (_conn as TCPConnection).dispose()
           _conn = None
+        else
+          Debug.out("  _conn as ERROR")
         end
+      else
+        Debug.out("  _sent != 0")
       end
       return
+    else
+      Debug.out("  _unsent != 0")
     end
 
     // If waiting for response to an unsafe request, do not send more requests.
     // TODO this check has to be in Client so that the apply fails.
-    if _safewait then return end
+    if _safewait then return
+    else
+      Debug.out("  NOT _safewait")
+    end
 
     try
       // Get the existing connection, if it is there.
       let conn = _conn as TCPConnection
 
+      Debug.out("  go while _nobackpressure")
       try
         // Send requests until backpressure makes us stop, or we
         // send an unsafe request.
@@ -289,8 +299,11 @@ actor _ClientConnection is HTTPSession
             break
           end
         end
+      else
+        Debug.out("  ERROR some inside while")
       end
     else
+      Debug.out("  ERROR so try new connection")
       // Oops, the connection is closed. Open it and try sending
       // again when it becomes active.
       _new_conn()

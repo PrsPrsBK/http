@@ -1,1 +1,11 @@
 httpget
+*.dll
+*.lib
+*.exe
+*.ilk
+*.pdb
+*.exp
+*.ps1
+*.pem
+110/
+libre/
