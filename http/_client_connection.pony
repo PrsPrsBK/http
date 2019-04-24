@@ -327,14 +327,17 @@ actor _ClientConnection is HTTPSession
     Debug.out("  _CliCon new conn")
     match _conn
     | let _: None =>
+      Debug.out("  let _")
       try
         let ctx = _sslctx as SSLContext
         let ssl = ctx.client(_host)?
+        Debug.out("  after client(_host)?")
         TCPConnection(
           _auth,
           SSLConnection(_ClientConnHandler(this), consume ssl),
           _host, _service)
       else
+        Debug.out("  else -> TCPCON")
         TCPConnection(
           _auth,
           _ClientConnHandler(this),
